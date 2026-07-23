@@ -8,13 +8,15 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff; padding: 20px; }
     #status { text-align: center; color: #666; margin-top: 40px; }
-    #error { color: #d32f2f; text-align: center; margin-top: 20px; display: none; white-space: pre-wrap; word-break: break-all; }
+    #error { color: #d32f2f; text-align: center; margin-top: 20px; display: none; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+    #debug { color: #666; text-align: center; margin-top: 10px; white-space: pre-wrap; word-break: break-all; font-size: 11px; }
     #checkout-container { min-height: 400px; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div id="status">正在加载...</div>
   <div id="error"></div>
+  <div id="debug"></div>
   <div id="checkout-container"></div>
   
   <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
@@ -25,6 +27,7 @@
     function showStatus(text) {
       document.getElementById('status').innerText = text;
       document.getElementById('status').style.display = 'block';
+      logDebug('status: ' + text);
     }
 
     function showError(text) {
@@ -32,47 +35,72 @@
       document.getElementById('error').innerText = text;
       document.getElementById('error').style.display = 'block';
       document.getElementById('status').style.display = 'none';
+      logDebug('error: ' + text);
+    }
+
+    function logDebug(text) {
+      var el = document.getElementById('debug');
+      el.innerText += '[' + new Date().toLocaleTimeString() + '] ' + text + '\n';
+    }
+
+    function waitForPaddle(callback, timeout) {
+      var start = Date.now();
+      var interval = setInterval(function() {
+        if (typeof Paddle !== 'undefined' && Paddle.Initialize) {
+          clearInterval(interval);
+          callback(null);
+        } else if (Date.now() - start > timeout) {
+          clearInterval(interval);
+          callback(new Error('Paddle.js 加载超时'));
+        }
+      }, 200);
     }
 
     function initPaddle(config) {
       paddleConfig = config;
-      showStatus('正在初始化 Paddle...');
+      showStatus('等待 Paddle.js 就绪...');
+      logDebug('initPaddle called with env=' + config.environment);
       
-      try {
-        if (typeof Paddle === 'undefined') {
-          showError('Paddle.js 加载失败，请检查网络');
+      waitForPaddle(function(err) {
+        if (err) {
+          showError('Paddle.js 未加载，请检查网络或 CDN 访问');
           return;
         }
-
-        if (config.environment === 'production') {
-          Paddle.Environment.set('production');
-        } else {
-          Paddle.Environment.set('sandbox');
-        }
         
-        Paddle.Initialize({
-          token: config.token,
-          eventCallback: function(event) {
-            console.log('Paddle event:', event.name, event);
-            if (event.name === 'checkout.completed') {
-              window.location.href = 'ssnote://paddle/success';
-            }
-            if (event.name === 'checkout.closed' || event.name === 'checkout.cancelled') {
-              window.location.href = 'ssnote://paddle/cancel';
-            }
+        showStatus('正在初始化 Paddle...');
+        
+        try {
+          if (config.environment === 'production') {
+            Paddle.Environment.set('production');
+          } else {
+            Paddle.Environment.set('sandbox');
           }
-        });
-        
-        openCheckout();
-      } catch (e) {
-        showError('初始化失败: ' + e.message + '\n' + e.stack);
-      }
+          
+          Paddle.Initialize({
+            token: config.token,
+            eventCallback: function(event) {
+              logDebug('event: ' + event.name);
+              if (event.name === 'checkout.completed') {
+                window.location.href = 'ssnote://paddle/success';
+              }
+              if (event.name === 'checkout.closed' || event.name === 'checkout.cancelled') {
+                window.location.href = 'ssnote://paddle/cancel';
+              }
+            }
+          });
+          
+          openCheckout();
+        } catch (e) {
+          showError('初始化失败: ' + e.message + '\n' + e.stack);
+        }
+      }, 10000);
     }
 
     function openCheckout() {
       if (checkoutOpened || !paddleConfig) return;
       checkoutOpened = true;
       showStatus('正在打开结账窗口...');
+      logDebug('opening checkout with priceId=' + paddleConfig.priceId);
       
       try {
         Paddle.Checkout.open({
@@ -84,6 +112,14 @@
             frameTarget: 'checkout-container',
             frameInitialHeight: '450',
             frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;'
+          },
+          successCallback: function(data) {
+            logDebug('successCallback');
+            window.location.href = 'ssnote://paddle/success';
+          },
+          closeCallback: function() {
+            logDebug('closeCallback');
+            window.location.href = 'ssnote://paddle/cancel';
           }
         });
         document.getElementById('status').style.display = 'none';
@@ -92,7 +128,6 @@
       }
     }
 
-    // 页面加载 3 秒后如果还没初始化，提示等待
     setTimeout(function() {
       if (!paddleConfig) {
         showStatus('等待 App 注入配置...');
