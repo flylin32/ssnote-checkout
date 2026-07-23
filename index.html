@@ -6,13 +6,15 @@
   <title>SSNote Pro</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff; }
-    #status { padding: 20px; text-align: center; color: #666; }
-    #checkout-container { min-height: 400px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff; padding: 20px; }
+    #status { text-align: center; color: #666; margin-top: 40px; }
+    #error { color: #d32f2f; text-align: center; margin-top: 20px; display: none; white-space: pre-wrap; word-break: break-all; }
+    #checkout-container { min-height: 400px; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div id="status">正在加载...</div>
+  <div id="error"></div>
   <div id="checkout-container"></div>
   
   <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
@@ -20,12 +22,28 @@
     let paddleConfig = null;
     let checkoutOpened = false;
 
-    // App 会调用这个方法注入 token、priceId、environment
+    function showStatus(text) {
+      document.getElementById('status').innerText = text;
+      document.getElementById('status').style.display = 'block';
+    }
+
+    function showError(text) {
+      console.error(text);
+      document.getElementById('error').innerText = text;
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('status').style.display = 'none';
+    }
+
     function initPaddle(config) {
       paddleConfig = config;
-      document.getElementById('status').style.display = 'none';
+      showStatus('正在初始化 Paddle...');
       
       try {
+        if (typeof Paddle === 'undefined') {
+          showError('Paddle.js 加载失败，请检查网络');
+          return;
+        }
+
         if (config.environment === 'production') {
           Paddle.Environment.set('production');
         } else {
@@ -35,6 +53,7 @@
         Paddle.Initialize({
           token: config.token,
           eventCallback: function(event) {
+            console.log('Paddle event:', event.name, event);
             if (event.name === 'checkout.completed') {
               window.location.href = 'ssnote://paddle/success';
             }
@@ -46,26 +65,39 @@
         
         openCheckout();
       } catch (e) {
-        document.getElementById('status').innerText = '初始化失败: ' + e.message;
+        showError('初始化失败: ' + e.message + '\n' + e.stack);
       }
     }
 
     function openCheckout() {
       if (checkoutOpened || !paddleConfig) return;
       checkoutOpened = true;
+      showStatus('正在打开结账窗口...');
       
-      Paddle.Checkout.open({
-        items: [{ priceId: paddleConfig.priceId, quantity: 1 }],
-        settings: {
-          displayMode: 'inline',
-          theme: 'light',
-          variant: 'one-page',
-          frameTarget: 'checkout-container',
-          frameInitialHeight: '450',
-          frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;'
-        }
-      });
+      try {
+        Paddle.Checkout.open({
+          items: [{ priceId: paddleConfig.priceId, quantity: 1 }],
+          settings: {
+            displayMode: 'inline',
+            theme: 'light',
+            variant: 'one-page',
+            frameTarget: 'checkout-container',
+            frameInitialHeight: '450',
+            frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;'
+          }
+        });
+        document.getElementById('status').style.display = 'none';
+      } catch (e) {
+        showError('打开结账窗口失败: ' + e.message + '\n' + e.stack);
+      }
     }
+
+    // 页面加载 3 秒后如果还没初始化，提示等待
+    setTimeout(function() {
+      if (!paddleConfig) {
+        showStatus('等待 App 注入配置...');
+      }
+    }, 3000);
   </script>
 </body>
 </html>
