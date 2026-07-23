@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SSNote Pro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff; }
+    #status { padding: 20px; text-align: center; color: #666; }
+    #checkout-container { min-height: 400px; }
+  </style>
+</head>
+<body>
+  <div id="status">正在加载...</div>
+  <div id="checkout-container"></div>
+  
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  <script>
+    let paddleConfig = null;
+    let checkoutOpened = false;
+
+    // App 会调用这个方法注入 token、priceId、environment
+    function initPaddle(config) {
+      paddleConfig = config;
+      document.getElementById('status').style.display = 'none';
+      
+      try {
+        if (config.environment === 'production') {
+          Paddle.Environment.set('production');
+        } else {
+          Paddle.Environment.set('sandbox');
+        }
+        
+        Paddle.Initialize({
+          token: config.token,
+          eventCallback: function(event) {
+            if (event.name === 'checkout.completed') {
+              window.location.href = 'ssnote://paddle/success';
+            }
+            if (event.name === 'checkout.closed' || event.name === 'checkout.cancelled') {
+              window.location.href = 'ssnote://paddle/cancel';
+            }
+          }
+        });
+        
+        openCheckout();
+      } catch (e) {
+        document.getElementById('status').innerText = '初始化失败: ' + e.message;
+      }
+    }
+
+    function openCheckout() {
+      if (checkoutOpened || !paddleConfig) return;
+      checkoutOpened = true;
+      
+      Paddle.Checkout.open({
+        items: [{ priceId: paddleConfig.priceId, quantity: 1 }],
+        settings: {
+          displayMode: 'inline',
+          theme: 'light',
+          variant: 'one-page',
+          frameTarget: 'checkout-container',
+          frameInitialHeight: '450',
+          frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;'
+        }
+      });
+    }
+  </script>
+</body>
+</html>
