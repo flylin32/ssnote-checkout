@@ -104,16 +104,13 @@
       
       try {
         Paddle.Checkout.open({
-          items: [{ priceId: paddleConfig.priceId, quantity: 1 }],
-          settings: {
-            displayMode: 'inline',
-            theme: 'light',
-            variant: 'one-page',
-            frameTarget: '#checkout-container',
-            frameInitialHeight: '450',
-            frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;'
-          },
-          successCallback: function(data) {
+           items: [{ priceId: paddleConfig.priceId, quantity: 1 }],
+           settings: {
+             displayMode: 'overlay',
+             theme: 'light',
+             variant: 'one-page'
+           },
+           successCallback: function(data) {
             logDebug('successCallback');
             window.location.href = 'ssnote://paddle/success';
           },
