@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SSNote Pro</title>
-  <meta name="version" content="v3-overlay">
+  <meta name="version" content="v4-successurl">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff; padding: 20px; }
@@ -110,7 +110,7 @@
              displayMode: 'overlay',
              theme: 'light',
              variant: 'one-page',
-             defaultCheckoutUrl: 'https://flylin32.github.io/ssnote-checkout/success.html'
+             successUrl: 'https://flylin32.github.io/ssnote-checkout/success.html'
            },
            successCallback: function(data) {
             logDebug('successCallback');
@@ -127,10 +127,10 @@
       }
     }
 
-    logDebug('page version: v3-overlay');
+    logDebug('page version: v4-successurl');
     setTimeout(function() {
       if (!paddleConfig) {
-        showStatus('等待 App 注入配置... (v3-overlay)');
+        showStatus('等待 App 注入配置... (v4-successurl)');
       }
     }, 3000);
   </script>
